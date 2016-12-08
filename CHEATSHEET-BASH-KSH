@@ -1,0 +1,641 @@
+CHEATSHEET-BASH-KSH
+
+|--------------------------------------|
+
+BASICS
+
+	Types of commands:
+	
+		Aliases
+		Functions
+		Builtins (cd, echo, ls, [, type, etc.)
+		Keywords (aka reserved words) ([[, {, case, if, until, etc.) 
+		Executables
+		
+		Use the builtin "type" to determine type.
+		For help on builtins and keywords, some Linuxes have a man page; OR type
+		<help [builtin name|keyword name]>
+		
+	Scripts:
+	
+        When kernel executes a non-binary (i.e., a text file), it looks to the
+        first line and if it contains the magic characters #!, the kernel uses 
+        the line to determine what interpreter (bash, ksh, etc.) to use.  The 
+        program itself, bash, just sees a comment. Can call with <bash 
+        scriptname>.  In this case, shabang is not read.
+		
+		OR
+		
+		Give the file executable permissions.  Now, can call directly (with ./ unless
+		in "$PATH").  Shabang also ignored here as well.
+		
+		The shabang should be "/usr/bin/env bash" (or ksh or whatever); do not hard-
+		code the actual path (i.e., #!/bin/bash). Good example:  OBSD does not have 
+		bash in base; if added as package, will not be in /bin/bash, so that hard-
+		coding will fail.  Can use bash in OBSD with the shabang above or by switch-
+		ing interpreter to bash with <bash> or, for one command only, 
+		<bash command/script.>  Can check which interpreter is active with 
+		<echo "$0">.
+		
+		Use the "exit" builtin for scripts (i.e., "main") and "return" for functions.
+		
+	Special characters:
+	
+		[whitespace]	Usually tabs, spaces, and new lines.  Set in the $IFS 
+						variable. (Internal field seperator).
+		
+		$				(Parameter) Expansion character.
+		
+		' '				Single quotes; prevents special meaning of ALL chars.
+		
+		" "				Double quotes; prevents special meaning of most chars.  
+						Permits	substitutions to occur.  NOTE: Prevents action of 
+						single-quotes as well, i.e., <echo '$PATH'> will print 
+						literal $PATH; <echo "'$PATH'"> will print the PATH.
+						
+		#				Comments.
+		
+		;				Command seperator.  <cd /bin; ls -l>.
+		
+		\				Escape char.  Prevents next char. from being used in any 
+						special way.  Works unquoted or in double quotes; NOT in 
+						single quotes.
+						
+		~				Homedir shortcut.
+		
+		< >				Redirection chars.
+		
+		|				Pipeline creator.
+		
+		|---------------------------------|
+		
+		[[ expression ]]	Test expression - logical. [[ -f .xinitrc ]] eval. as 
+							true. Also <test expression> or [ expression ].
+		
+		{ commands }		Command grouping; need semi-colon between and after last.
+		
+		$(command)			Same as wrapping command in backticks `command`.
+		
+		(command)			Executes command in a subshell; any change in variables, 
+							environment, etc., are lost when completes.  Try 
+							<(cd /usr/local/bin; ls)>; when done, still in original 
+							directory.
+							
+		((expression))		ARITHMETIC command.  Special chars. like *, /, <, >, 
+							are used in the mathematical sense.  Used for assignment
+							((a=5+8)) and logical if ((a < b)).  NOTE: if eval to 
+							zero, exit status is 1 (false); if evaluates to non-zero,
+							exit status is 0 (true).  Otherwise, same, i.e., 
+							(( 5 > 4 )) evaluates to 0, true.  DO NOT use expansion
+							char. ($) inside (( )).
+		
+		$((expression))		ARITHMETIC substitution.  Expression is replaced with 
+							result. <echo $(( (3+5) / 2 ))>
+
+PARAMETERS
+
+	Parameters are a named space in memory.  The can be either variables or special
+	parameters.
+	
+	Special Parameters (provided by the shell):
+	
+		"$0"		Name of program, application, shell, etc.
+		
+		"$1", "$2"	Positional parameters; contain arguments to command. Up to 9.
+		
+		"$*"		All the words of all positional parameters.
+		
+		"$@"		All words of all positional parameters; different format from 
+					"$*".
+					
+		$#			Number of positional parameters that are currently set.
+		
+		$?			Exit code of last completed forgrounded command.
+		
+		$$			PID of current shell.
+		
+		$!			PID of most recently executed backgrounded command.
+		
+		"$_"		Last argument of last command executed.
+		
+		EX.: <for arg in "$@"; do echo "$arg"; done>
+		
+	Variables (provided by the shell);
+	
+		BASH_VERSION, PWD, UID, HOME, PATH, etc.
+		
+	Variables (hand-rolled):
+	
+		To create, <variable=value>; no spaces.  Ex.: house=Blountsville;
+		<echo "$house"> prints Blountsville.
+		
+		Types:
+		
+		Array				declare -a name
+		Associative array	declare -A name 
+		Integer				declare -i 
+		Read-only			declare -r 
+		Export				declare -x
+		
+		However, note that except for associative arrays, "declare" not needed and
+		the others are just not used.  More on arrays later.
+		
+	Parameter Expansion Tricks (i.e., string operations) (there are more):
+	
+		${parameter:-word}		If parameter is unset or NULL, word is substituted;
+								otherwise, parameter is substituted.
+								
+								EX: echo ${TMPDIR:-word} parameter unset, so prints
+								"word".
+								
+								echo ${PS1:-word} pasrameter set and prints prompt-
+								string.
+								
+		${parameter:=word}		If parameter is unset or NULL, word is set as para-
+								meter; if set, nothing happens.
+								
+								EX: ${TESTPARAM:=success}; echo "$TESTPARAM" prints
+								success.
+								
+		${parameter:+word}		If parameter is unset or NULL, nothing is done;
+								otherwise, parameter is reset to word.
+								
+								EX:  ??
+								
+		${parameter:offset:len}	Expands parameter len chars from offset.
+		
+								EX: echo ${PATH:0:24} prints first 24 chars of PATH
+								
+		${#parameter}			Expands to the length of the string parameter.
+		
+								EX: echo ${#PATH} returns, in this case, 104
+		
+		The next 4 are substitutes for the "cut" command:
+		
+		${parameter#pattern}	"Pattern" is matched against parameter from the 
+								beginning; shortest match is deleted.
+								
+								EX: [for next 6]    foo=file.txt.zip
+								echo ${foo#*.} produces txt.zip
+		
+		${parameter##pattern}	Same as above; longest match is deleted.
+		
+								EX: echo ${foo##*.} produces zip
+								
+		${parameter%pattern}	"Pattern" is matched against parameter from the
+								end; shortest match deleted.
+		
+								EX: echo ${foo%.*} produces file.txt
+								
+		${parameter%%pattern}	Same as above; longest match is deleted.
+		
+								EX: echo ${foo%%.*} produces file
+								
+		The next two are a form of "sed":
+		
+		${parameter/patt/strg}	First unanchored match of "pat" replaced with "strg"
+		
+								EX: echo ${foo/txt/TXT}
+								
+		${parameter//patt/strg}	All matches of "pat" replaced with "strg"
+		
+								EX: echo ${foo/txt/TXT}
+
+PATTERNS
+
+	3 kinds of pattern matching: globs, extended globs, and regex.
+	
+	Globs:
+	
+		*		matches any and/or all, incl. null string
+		
+		?		matches one and only one character.
+		
+		[abc]	matches any one of the enclosed characters.
+		
+				EX.: for files in filesystem:
+				
+					sys_info_page.autogen.html
+					sys_info_page.html
+					
+				the cmd. <ls -l sys_info_page.[abc]*> will list the one match.
+				
+	Extended globs:
+	
+	Need to turn on support with <shopt -s extglob>, so probably won't use or see
+	much; here for ID purposes only:
+	
+		?(list)		Matches zero or one contained in the list;
+		*(list)		Matches zero or more contained in the list;
+		+(list)		Matches one or more contained in the list;
+		@(list)		Matches one contained in the list;
+		!(list)		Matches anything except one contained in the list;
+		
+			EX.: for three files names.txt, tokyo.jpg, here.exe, 
+			
+			<echo !(*jpg|*exe)> returns names.txt.
+			
+	Regex:
+
+    bash uses ere; can be used for pattern matching, not filename matching.
+    Not otherwise covered here.
+			
+	BONUS! Brace expansion (does not work with ksh; more precisely, need to re-set
+			the posix mode or braceexpand options, but neither seem to work):
+	
+		Ex: echo Front-{A,B,C}-Back gives 
+                Front-A-Back Front-B-Back Front-C-Back
+
+        echo Number_{1..5} gives Number_1 Number_2 Number_3 Number_4 Number_5
+        echo Number{1..5} gives Number1 Number2 Number3 Number4 Number5
+        echo Number {1..5} gives Number 1 2 3 4 5
+        echo 'Number '{1..5} gives Number 1 Number 2 Number 3 Number 4 Number 5
+        echo a{A{1,2},B{3,4}}b gives aA1b aA2b aB3b aB4b
+        echo {2007..2008}-{01..6} gives 2007-01 2007-02 2007-03 2007-04 2007-05 
+             2007-06 2008-01 2008-02 2008-03 2008-04 2008-05 2008-06 (Note no 0
+             in front of 6 in command).
+
+TESTING
+
+--------------------------------------------------|
+RE-DO THIS ENTIRE SECTION - update early and often
+--------------------------------------------------|
+
+	There are different types of objects to test: logic, integers, strings, files,
+	arithmetic, etc.  There are some redundencies, but a different section for each 
+	would probably be best.
+	
+	There are also different means: "test", [ ], [[ ]], (( )), $(( )), 
+	if [condition] then [do].  I will not be using the old "test" builtin and will
+	try to not use the old [ command.
+	
+	Files:
+	
+		Operators: Use "the list."
+		
+		Examples:
+		
+		[[ -f ~/.xinitrc ]] - true if file exists and is a regular file; returns 0
+		[[ -k ~/.xinitrc ]] - true if file exists and has sticky bit set; returns 1
+		
+	Integer comparison:
+	
+		Operators: -eq, -ne, -le, -lt, -gt, -ge
+		
+			Note: bash treats integers as just strings, so some string operators
+			and tests will work, i.e., [[ -z "$INT" ]] tests if there exists an INT.
+		
+		Examples:
+		
+		[[ $INT -eq 0 ]] - true (0) if equals zero
+		
+			[ int1 -eq int2 ]
+			[ int1 -ne int2 ]
+			[ int1 -le int2 ]
+			[ int1 -lt int2 ]
+			[ int1 -ge int2 ]
+			[ int1 -gt int2 ]
+		
+		--------  and --------
+		
+        Operators: ==, <=, <, >, >=, !=
+		
+		
+		Examples:
+		
+		(( INT == 0 )) - true (0) if equals zero
+		(( ((INT % 2)) == 0 )) - true (0) if INT is even
+
+			NOTE: Expansion char ($) not used unside (( ))
+		
+	Compound comparison:
+	
+		Operators: &&, ||, !
+		
+		Examples:
+		
+		[[ $INT -ge $MIN && $INT -le MAX ]]
+		
+		name=dutch; if [[ "$name" = "dutch" || "$name" = "DUTCH" ]]; then echo YES;\
+		else echo NO; fi
+		
+		Negation form is like this:
+	
+		! [[ -f .xinitrc ]] - would be True (0) if .xinitrc did NOT exist; False 
+		(1) if it did. Seems can also be like [[ ! -e ... ]].
+		
+	String comparison:
+	
+		Operators:  From the bottom of "the list."  -z, -n, ==, !=, <, >
+		
+		Examples:
+		
+		[[ -z $STRING ]]
+		[[ string1 == string2 ]]
+		
+	Pattern Matching:
+	
+		FILE=foo.bar; if [[ $FILE == foo.* ]]; then echo YES; else echo NO; fi
+		
+	Regex use:
+		
+		INT=5; if [[ "$INT" =~ ^-?[0-9]+$ ]]; then echo YES; else echo NO; fi
+		                    ^^
+		                    for regex use only
+		                    
+	Arithmetic:
+
+        (Remember - just testing logic here, not evaluating.)
+	
+		Operators: >, <, ==, !=
+		
+		Examples:
+		
+		(( 5 )); printf "Exit status of \"(( 5 ))\" is "$?".\n"
+
+		(( 5 > 4 )); printf "Exit status of \"(( 5 > 4 ))\" is "$?".\n"
+
+		(( 5 > 9 )); printf "Exit status of \"(( 5 > 9 ))\" is "$?".\n"
+		
+	################
+	
+	Fun:  Russian Roulette:
+	
+	<(( $RANDOM % 6 == 0 )) && echo BOOM || echo click> (why does this work?) OR
+	<if (( $RANDOM % 6 == 0 )); then echo BOOM; else echo click; fi>
+
+LOOPS
+
+	if-then-elif-fi
+	while-do-done
+	until-do-done
+	for...
+	
+	
+	if-then-elif-fi
+	
+	Form:
+	
+		if (condition); then (do this); elif (do this); else (do this); fi
+		
+		EX.: <name=dutch; if [[ "$name" = "dutch" || "$name" = "DUTCH" ]]; then echo\
+		YES; else echo NO; fi>
+		
+	while-do-done
+	
+	Form:
+	
+		while (commands); do (commands); done
+		
+		EX.:<count=1; while [[ $count -le 5 ]]; do echo $count; count=$((count+1));\
+		done>
+		
+	until-do-done
+	
+	Form:
+	
+		until (condition); do (commands); done
+		
+		EX.:<count=5; until [[ $count -eq 0 ]]; do echo $count; count=$((count-1));\
+		done>
+		
+	for...
+	
+		Two forms: traditional and updated:
+		
+		Traditional form:
+		
+			for variable in words; do commands; done
+			
+			EX.: <for i in {A..Z}; do echo $i; done>
+			<for file in *.txt; do mv "$file" "$file.bak"; done>
+			
+		Updated (C-style) form:
+		
+			for (( expression1; expression2; expression3 )); do commands; done
+			
+			EX.: <for (( i=0; i<5; i=i+1 )); do echo $i; done>
+
+CASE
+
+	Form:
+	
+		case word in
+			[pattern [|pattern]...) commands;;]...esac
+			
+	Ex.:
+	
+	case $LANG in
+		en*)	echo 'Hello!' ;;
+		de*)	echo 'Tchuss!' ;;
+		*)		echo 'Huh?' ;;
+	esac
+	
+ARRAYS
+
+	Regular:
+
+	Declaring:  2 ways:
+	
+		1. array1=("Bob" "Pete" "$USER"); indexes are [0], [1], and [2]
+		
+		2. declare -a array1; empty; to assign:
+		
+			array1=("Bob" "Pete" "$USER"); right, no reason to use "declare" or
+			array1[0]="Bob", etc.
+			
+			even
+			
+			array1=([0]="Bob" [1]="Pete" [2]="$USER")
+			
+		Accessing:
+		
+		use loop, i.e.,
+		
+		for i in {0..11}; do printf "%d\n" {array1[i]}; done
+		
+		Better:
+		
+		animals=("a dog" "a cat" "a fish")
+		for i in "${animals[*]}"; do echo "$i"; done  (all on one line)
+		for i in "${animals[@]}"; do echo "$i"; done  (all on each's own line)
+		
+	Associative
+	
+	Use strings for array index as opposed to integers.
+	
+	EX.:
+	
+		declare -A colors
+		colors["red"]="#ff0000"
+		colors["blue"]="#0000ff", etc.
+		
+	Access:
+	
+		EX.: <echo ${colors["blue"]}>
+		
+READ (interactive data input)
+
+	Use:
+	
+	<read -p "Enter name: " name; echo "Hello, ${name}.">
+							^^^^
+						the var input is saved to
+						
+	The -p option is for "prompt", i.e., get one to enter name.  The var "name"
+	is created and populated automatically.  If no var is given, defaults to system 
+	variable REPLY.
+	
+HERE DOCS AND HERE STRINGS
+
+	Heredocs:
+
+	So, instead of echo or printf, can also use here doc or here string to do the
+	same.  Not difficult, but confusing since uses EOF historically for a use that
+	is not an EOF.
+	
+	Two points: (1) the historical "EOF" is really just a tag; can be anything at
+	all.  (2) single and double quotes lose special meaning.
+	
+	Form:
+	
+		foo="some text" 
+		cat << SOMETAG
+		> $foo
+		> "$foo"
+		> '$foo'
+		> \$foo
+		> SOMETAG
+		
+		Will output exactly what is on each line; no expansion.
+		
+	Most helpful:  for scripts, use <<-, which allows tabbing-in of following lines.
+	
+	Herestrings:
+	
+	Not very useful to me.  Does not work with ksh.
+	
+	Form:
+	
+		<grep proud <<< "I am a proud sentence.">
+
+REDIRECTION
+
+	OK - so finally, stdout and stderr redirection.
+	
+	Can't just use > and >>; need to use file descriptors.  The canonical way is
+	to designate redirection of stderr from its usual (the console) is to redirect 
+	like so:
+	
+			<ls -l /bin 2> ls-error.txt>  (or /dev/null to dispose of)
+			
+	which redirects fd 2 to the file ls-error.txt.
+	
+	Now, if we want to redirect both stdout and stderr to the same place from the
+	usual (the console), is like so:
+	
+			<ls -l /bin > ls-output.txt 2>&1>
+		
+	which creates the output file, redirects STDOUT to it (the usual > filename part)
+	THEN redirects stderr, fd 2, to STDOUT, fd 1, which is already redirected.  The
+	order here must be followed.
+	
+	There is a newer syntax for bash (not ksh), which I won't use but is here for
+	notice purposes only:
+	
+			<ls -l /bin &> ls-output.txt>  
+			
+	which creates/overwrites output file with both stdout and stderr.  Use &>> to
+	append.
+	
+	To send both fd 1 and fd 2 to a file and console:
+	
+			<ls -l /bin 2>&1 | tee ls-output.txt>
+
+FUNCTIONS
+
+	Two ways to create (ksh also; note ksh manpage says functions will work slightly
+	differently depending upon how created; not the case with bash.)
+	
+	Forms:
+	
+		function func-name {
+			commands
+			return
+		}
+	
+	OR
+	
+		func-name () {
+			commands
+			return 
+		}
+	
+	Really just mini-scripts drafted with the same elements.
+	
+	Calling:
+	
+		Just use the name of the function.
+		
+	Variables:
+	
+		Like C, have globals and locals.
+		
+		To declare a local, which will disappear, can be named the same as other
+		locals in other functions, etc., use the "local" builtin:
+		
+		local foo
+		foo=1
+
+HEADER FILES
+
+	Can do headers just like C.
+	
+	How:  (1) create header file with whatever inside; name e.g. headerFile.sh; (2)
+	refer (call) to it in main script with:
+	
+		<. headerFile.sh>
+	
+	Don't see much of this in the literature; "header" not mentioned in man bash;
+	nor in Shotts; nor in BashGuide.  Only bash scripting wikibook.
+	
+ARITHMETIC/LOGIC
+
+	Shell only deals with integers; if floats are needed, something like bc(1) can
+	be used.
+	
+	Arithmetic expansion:
+	
+		Form:
+		
+			echo $(( 3 + 4 * (5 - 1) )) prints 19
+			
+		Operators:
+		
+			binary: +, -, *, /, %, **
+			unary: +, -
+			compound: +=, -=, *=, /=, %=
+			increment/decrement: ++, -- (same basic rules as C as to pre- and post-
+								increment/decrement
+			
+		Variables:
+		
+			Can be referred to inside (( )) w/o expansion char. $, i.e.:
+			
+			i=2+3
+			echo $(( 7 * i ))
+			
+	Logic:
+	
+		Operators:
+		
+			<, >, <=, >=, ==, !=, &&, ||, !, and
+			x ? y : z (if x != 0, return y; otherwise, return z)
+			
+	Bitwise:
+	
+		It is here as well, just in case run across:
+		
+		Operators:
+		
+			&, |, ^, ~, <<, >>, &=, |=, ^=
