@@ -106,15 +106,15 @@ PARAMETERS
 		"$*"		All the words of all positional parameters.
 		
 		"$@"		All words of all positional parameters; different format from 
-					"$*".
+				"$*".
 					
-		$#			Number of positional parameters that are currently set.
+		$#		Number of positional parameters that are currently set.
 		
-		$?			Exit code of last completed forgrounded command.
+		$?		Exit code of last completed forgrounded command.
 		
-		$$			PID of current shell.
+		$$		PID of current shell.
 		
-		$!			PID of most recently executed backgrounded command.
+		$!		PID of most recently executed backgrounded command.
 		
 		"$_"		Last argument of last command executed.
 		
